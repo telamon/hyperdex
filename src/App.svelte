@@ -264,7 +264,7 @@ const news = derived([db, aboutLut, newsPage], async ([$db, $about, $page], set)
       <h2>About hyperdex</h2>
       <ul>
         <li>Source code <a target="_new" href="https://github.com/telamon/hyperdex">hyperdex</a> (offline-webapp)</li>
-        <li>Source code <a target="_new" href="https://github.com/telamon/hyperspace-indexer">hyper-indexer</a> (robot)</li>
+        <li>Source code <a target="_new" href="https://github.com/telamon/hyperspace-indexer">hyperspace-indexer</a> (robot)</li>
         <li><a target="_new" href="https://twitter.com/telamohn">@telamohn (twitter)</a></li>
         <li><a target="_new" href="https://www.patreon.com/decentlabs">Decentlabs Patreon</a></li>
         <!--<li>hyper://decentlabs.se</li>-->
@@ -290,7 +290,7 @@ const news = derived([db, aboutLut, newsPage], async ([$db, $about, $page], set)
     <br/>
     The content on this page is transparently and deterministically produced by a robot,
     if you disagree with anything presented here or would like to alter the robot's behaviour,
-    then please open an <a href="https://github.com/telamon/hyper-indexer/issues">issue</a> and don't forget
+    then please open an <a href="https://github.com/telamon/hyperspace-indexer/issues">issue</a> and don't forget
     to <a href="https://www.patreon.com/decentlabs">subscribe</a> to boost research and development.
     </p>
     <p>2020 © <a href="https://www.patreon.com/decentlabs">Decent Labs AB</a>. All wrongs reversed - <samp>Licensed GNU AGPLv3</samp></p>
