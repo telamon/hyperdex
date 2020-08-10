@@ -45,10 +45,7 @@ export default {
       preferBuiltins: true // <-- If this refers to builtins below then yes.
     }),
 
-    commonjs({
-      namedExports: {
-      }
-    }),
+    commonjs(),
 
     // These should probably be replaced by injecting
     // https://github.com/feross/buffer
@@ -67,9 +64,9 @@ export default {
 
     // If we're building for production (npm run build
     // instead of npm run dev), minify
-    production && terser({ output: { comments: false } }),
+    // production && terser({ output: { comments: false } }),
 
-    production && petrify('public/index.html', 'docs/index.html')
+    // production && petrify('public/index.html', 'docs/index.html')
   ],
   watch: {
     clearScreen: false
