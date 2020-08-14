@@ -5,7 +5,8 @@
     "build": "rollup -c",
     "dev": "rollup -c -w",
     "serve": "rollup -c -w",
-    "start": "sirv public"
+    "start": "sirv public",
+    "lint": "standard"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^14.0.0",

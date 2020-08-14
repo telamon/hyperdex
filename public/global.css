@@ -1,3 +1,32 @@
+/* flexi.css */
+.flex{display:flex;}
+.row{flex-direction: row;}
+.row-reverse{flex-direction: row-reverse;}
+.column{flex-direction: column;}
+.column-reverse{flex-direction: column-reverse;}
+.wrap{flex-wrap: wrap;}
+.wrap-reverse{flex-wrap: wrap-reverse;}
+.nowrap{flex-wrap: nowrap;}
+.space-around{ justify-content: space-around; }
+.space-between{ justify-content: space-between; }
+.start{ justify-content: flex-start; }
+.end{ justify-content: flex-end; }
+.center{ justify-content: center; }
+.xstart{ align-items: flex-start; }
+.xend{ align-items: flex-end; }
+.xcenter{ align-items: center; }
+.xbaseline{ align-items: baseline; }
+.xstrech { align-items: stretch; }
+.grow1{ flex-grow: 1; }
+.grow2{ flex-grow: 2; }
+.grow3{ flex-grow: 3; }
+.grow4{ flex-grow: 4; }
+/* global */
+
+/* color theme */
+:root {
+  --purp: #62467b;
+}
 html, body {
 	position: relative;
 	width: 100%;
@@ -5,6 +34,7 @@ html, body {
 }
 
 body {
+  background-color: #eae9ef;
 	color: #333;
 	margin: 0;
 	padding: 0;
@@ -18,7 +48,7 @@ a {
 }
 
 a:hover {
-	text-decoration: underline;
+	/*text-decoration: underline;*/
 }
 
 a:visited {
