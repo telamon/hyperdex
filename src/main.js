@@ -1,7 +1,6 @@
 import HyperdexDB from './db.js'
 
-const DATABASE_URL = 'hyper://29a86f9275ccec8fdcf641fae006afb5b1883127264ee6818a916ca437f378f7'
-
+const DATABASE_URL = 'hyper://0b5dfb2a9f3f3bff79fe124d9519007b0b2838806b2abc161701d19c79a4e6d5'
 const db = new HyperdexDB(DATABASE_URL)
 import App from './App.svelte';
 if (!beaker || !beaker.hyperdrive) {

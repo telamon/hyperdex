@@ -1,8 +1,6 @@
 <script>
 import { writable, derived, readable } from 'svelte/store'
 import moment from 'moment'
-import marked from 'marked'
-import Purify from 'dompurify'
 import dbnc from 'debounce'
 import prettyBytes from 'pretty-bytes'
 import DriveCard from './components/DriveCard.svelte'
@@ -26,7 +24,8 @@ const tokens = derived(searchInput, ($input, set) => {
   const t = []
   for (const match of $input.toLowerCase().matchAll(/\b([\w\d]+)/g)) t.push(match[1])
   dbncSet(set, t)
-})
+  db.search(t)
+}, [])
 
 const sortAbout = writable('popularity')
 const idxAbout = derived([aboutLut, sortAbout], ([$a, order], set) => {
@@ -43,7 +42,16 @@ const idxAbout = derived([aboutLut, sortAbout], ([$a, order], set) => {
     }
   })
   set(drives)
-})
+}, [])
+
+const resultsUsers = derived([tokens, aboutLut], ([tokens, aboutLut], set) => {
+  if (!tokens.length) return set([])
+  const matches = Object.values(aboutLut)
+    .filter(info =>
+      info.title && tokens.find(term => term.length > 3 && info.title.match(new RegExp(term, 'i')))
+    )
+  set(matches)
+}, [])
 
 const showTab = (section, ev) => {
   $menuState = section
@@ -80,11 +88,21 @@ const showTab = (section, ev) => {
       <i>No results available, type 🐈 into the search box!</i>
     {:else}
       <h2><strong>{$results.length}</strong> results for <strong>{$tokens.join(', ')}</strong></h2>
-      {#each ($results || []) as res}
+      <section class="results-users">
+        <bold>Users</bold>
+        <div class="flex row">
+          {#each $resultsUsers as drive}
+            <DriveFloat db={db} key={drive.key} />
+          {/each}
+        </div>
+      </section>
+      {#each ($results) as res}
         <result>
-        <sup title="ducks">🦆{Math.round(100 * res._score)/100}</sup> <sup title="peers">👥{res._peers}</sup>
-        <h4><a href="{res.url}">{res._title}</a></h4>
-        <small>{res._description}</small><br/>
+        <sup title="ducks">
+          🦆{Math.round(100 * res._score)/100}
+          🎯 {res.hits.map(h => h.term).join(', ')}
+        </sup>
+        <DriveFloat db={db} key={res.key} />
         <samp><a href="{res.url}">{res.prettyUrl}</a></samp>
         <p>
         {#each res.hits as hit}
@@ -94,7 +112,13 @@ const showTab = (section, ev) => {
               🕑 {moment(hit.date).fromNow()}
             </time>
           </small>
-          <p class="ellipsis">{@html hit.highlight}...</p>
+            <p class="ellipsis">
+            {#if hit.previewType === 'text'}
+              {@html hit.preview}
+            {:else if hit.previewType === 'image'}
+              <img src="{hit.preview}" alt="preview"/>
+            {/if}
+          </p>
         {/each}
         </p>
         </result>
@@ -118,7 +142,7 @@ const showTab = (section, ev) => {
             <br/>
             <p class="ellipsis">
               {#if article.previewType === 'text'}
-                {@html marked(Purify.sanitize(article.preview))}
+                {@html article.preview}
               {:else if article.previewType === 'image'}
                 <img src="{article.preview}" alt="preview"/>
               {/if}
@@ -157,7 +181,10 @@ const showTab = (section, ev) => {
       <ul>
         <li>Source code <a target="_new" href="https://github.com/telamon/hyperdex">hyperdex</a> (offline-webapp)</li>
         <li>Source code <a target="_new" href="https://github.com/telamon/hyperspace-indexer">hyperspace-indexer</a> (robot)</li>
-        <li><a target="_new" href="https://twitter.com/telamohn">@telamohn (twitter)</a></li>
+        <li>
+          <a target="_new" href="hyper://4effb70d142f4cec80f263bc870fcf28177af4ac7bca7f66bb72cd4cda45be50/"><strong>@telamohn</strong></a>
+          ,
+          <a target="_new" href="https://twitter.com/telamohn">(twitter)</a></li>
         <li><a target="_new" href="https://www.patreon.com/decentlabs">Decentlabs Patreon</a></li>
         <!--<li>hyper://decentlabs.se</li>-->
       </ul>

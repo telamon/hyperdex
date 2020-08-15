@@ -17,7 +17,7 @@
     {/if}
     <h4><a href="hyper://{info.key}">{info.title}</a></h4>
   </div>
-  <p>&nbsp;{info.description}</p>
+  <description>{info.description}</description>
   <samp>
     <span title="peers">👥{info.peers}</span>
     <span title="version">🕑{info.version}</span>
@@ -47,12 +47,17 @@
     min-width: 75px;
     min-height: 75px;
     border-radius: 100%;
-    border: 2px solid var(--purp);
+    border: 3px  solid #eee;
     overflow: hidden;
     margin-right: 1em;
   }
   .thumbnail {
     max-width: 75px;
     max-height: 75px;
+  }
+  description {
+    max-height: 4em;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 </style>

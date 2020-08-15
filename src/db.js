@@ -1,4 +1,6 @@
 import dbnc from 'debounce'
+import marked from 'marked'
+import Purify from 'dompurify'
 import { writable, derived, readable, get } from 'svelte/store'
 
 const log = console.log.bind(null, '[hyperdex]')
@@ -36,14 +38,15 @@ class HyperdexDb {
     this.drive.watch(dbnc(this._processUpdates.bind(this), 5000))
     this.about = derived(this.version, this._aboutStore.bind(this), {})
     this._terms = writable([])
-    this.searchResults = derived([this._terms, this.about], this._resultsStore.bind(this), [])
+    this.search = dbnc(this.search.bind(this), 500)
+    this.searchResults = derived([this.version, this.about, this._terms], this._resultsStore.bind(this), [])
     this.newsPage = writable(0)
     this.news = derived([this.version, this.newsPage], safteyNet(this._newsStore.bind(this)), [])
     this._processUpdates()
   }
 
   search (terms) {
-    dbnc(() => this._terms.set(terms), 500)
+    this._terms.set(terms)
   }
 
   driveInfo (key) {
@@ -51,11 +54,15 @@ class HyperdexDb {
       const state = { version: 0 }
       state.store = derived(this.version, async (version, set) => {
         if (!version) return set({})
-        const stat = await this.drive.stat(`about/${key}`)
-        const seq = stat.mtime.getTime() // TODO: there's no way to access the sequence number without diff(), using
-        if (seq <= state.version) return
-        const info = await this.__makeDriveInfo(key)
-        set(info)
+        try {
+          const stat = await this.drive.stat(`about/${key}`)
+          const seq = stat.mtime.getTime() // TODO: there's no way to access the sequence number without diff(), using
+          if (seq <= state.version) return
+          const info = await this.__makeDriveInfo(key)
+          set(info)
+        } catch (err) {
+          log.warn('failed to load driveInfo', err)
+        }
       }, {})
       this._dynamicInfos[key] = state
     }
@@ -96,7 +103,8 @@ class HyperdexDb {
     const drives = get(this.about) || {}
     for (const key of keys) {
       try {
-        drives[key] = await this.__makeDriveInfo(key)
+        const info = await this.__makeDriveInfo(key)
+        if (info.title || info.peers) drives[key] = info // Skip { title: undefined, desc: undefined, peers: 0 }
       } catch (err) {
         console.error('Failed loading drive-info: ', key, err)
       }
@@ -106,7 +114,7 @@ class HyperdexDb {
   }
 
   async _newsStore ([version, page], set) {
-    const limit = 15
+    const limit = 50
     if (!version) return set([])
     const changes = await this.drive.diff(this._states.news, 'updates/')
     if (!changes.length) return // No changes
@@ -128,29 +136,6 @@ class HyperdexDb {
       const key = tmp.shift()
       const remotePath = tmp.join('_').replace(/\+/g, '/')
       const remoteVer = await this.drive.readFile(entry.path)
-
-      // generate preview hints
-      const ppath = previewPath(key, remotePath, remoteVer)
-      const previewUrl = `${this.url}/${ppath}`
-      let preview = null
-      let previewType = null
-      if (remotePath.match(/\.(md|txt)$/i)) {
-        try {
-          /*
-          console.log('Attempt listing:', previewPath(key, ''))
-          const linkStat = await this.drive.stat(ppath, { lstat: true })
-          if (!linkStat) break
-          preview = await this.drive.readFile(linkStat.linkname) */
-          preview = await this.drive.readFile(ppath)
-          previewType = 'text'
-        } catch (err) {
-          if (err.message !== 'Uncaught NotFoundError: File not found') throw err
-        }
-      } else if (remotePath.match(/\.(png|jpe?g)$/)) {
-        previewType = 'image'
-        preview = previewUrl
-      }
-
       const info = {
         version: parseInt(remoteVer),
         path: remotePath,
@@ -158,10 +143,10 @@ class HyperdexDb {
         key,
         url: `hyper://${key}/${remotePath}`,
         prettyUrl: `hyper://${prettyHash(key)}/${remotePath}`,
-        preview,
-        previewType,
-        previewUrl
       }
+      // generate preview hints
+      const previewBody = await this._getPreview(key, remotePath, remoteVer)
+      if (previewBody) Object.assign(info, previewBody)
       articles.push(info)
     }
 
@@ -170,52 +155,95 @@ class HyperdexDb {
     set(articles)
   }
 
-  async _resultsStore ([version, terms, about], set) {
-    return []
+  async _getPreview(key, remotePath, remoteVer) {
+    const ppath = previewPath(key, remotePath, remoteVer)
+    const previewUrl = `${this.url}/${ppath}`
+    // log('Attempting to load preview', previewUrl)
+    if (remotePath.match(/\.(md|txt)$/i)) {
+      try {
+        /*
+         * Links are a bit glitchy...
+          console.log('Attempt listing:', previewPath(key, ''))
+          const linkStat = await this.drive.stat(ppath, { lstat: true })
+          if (!linkStat) break
+          preview = await this.drive.readFile(linkStat.linkname) */
+        const preview = await this.drive.readFile(ppath)
+        return {
+          preview: marked(Purify.sanitize(preview.replace(/</g, `&lt;`).replace(/>/g, `&gt;`))),
+          previewType: 'text',
+          previewUrl
+        }
+      } catch (err) {
+        if (err.message !== 'Uncaught NotFoundError: File not found') throw err
+      }
+    } else if (remotePath.match(/\.(png|jpe?g)$/)) {
+      return {
+        previewType: 'image',
+        preview: previewUrl
+      }
+    }
+    return null
+  }
+
+  async _resultsStore ([version, about, terms], set) {
+    log('Searching for', terms)
     const results = {}
-    for (const term of $terms) {
+    for (const term of terms) {
       if (term.length < 3) continue
-      const entries = await $db.query({
-        path: `ngrams/${term.split('').join('/')}/*`,
+      const entries = await this.drive.query({
+        path: `terms/${term.split('').join('/')}/*`,
         type: 'file'
       })
-
       for (const entry of entries) {
         const fname = entry.path.match(/.*\/([^\/]+)$/)[1]
         let tmp = fname.split('_')
         const key = tmp.shift()
         const remotePath = tmp.join('_').replace('+', '/')
         if (!results[fname]) {
-          results[fname] = { _score: 0, hits: [] }
+          results[fname] = {
+            key,
+            url: `hyper://${key}/${remotePath}`,
+            prettyUrl: `hyper://${prettyHash(key)}/${remotePath}`,
+            _score: 0,
+            hits: []
+          }
         }
         const result = results[fname]
-        const _body = await $db.readFile(entry.path)
-        const hit = JSON.parse(_body)
-        hit.term = term
-        let count = 0
-        for (const _ of hit.match.matchAll(new RegExp(term, 'ig'))) count++
-        hit.highlight = Purify.sanitize(marked(hit.match))
-        hit.highlight = hit.highlight.replace(new RegExp(`(${term})`, 'ig'), '<em>$1</em>')
-        const url = `hyper://${key}/${hit.file}`
-        const prettyUrl = `hyper://${prettyHash(key)}/${hit.file}`
-        Object.assign(result,  { url, key, prettyUrl })
-        // TODO: double search weights if it's an exact match as opposite to partial
-        result._score += 1 + count * 0.25 // add search hit weights
-        const info = $about[key]
+        const _body = await this.drive.readFile(entry.path)
+        const ptr = JSON.parse(_body)
+        const hit = {
+          term,
+          date: new Date(ptr.d),
+          seq: ptr.m,
+          previewType: null,
+          preview: null
+        }
+        result.hits.push(hit)
+        const preview = await this._getPreview(key, remotePath, ptr.m)
+        if (preview) Object.assign(hit, preview)
+        if (preview && preview.previewType === 'text') {
+          // Adjust score for amount of times the term is found in the text
+          let count = 0
+          for (const _ of hit.preview.matchAll(new RegExp(term, 'ig'))) count++
+          result._score += count * 0.25 // add search hit weights
+          // Add highlights to preview
+          hit.preview = hit.preview.replace(new RegExp(`(${term})`, 'ig'), '<em>$1</em>')
+        }
+
+        const info = about[key]
         if (info) {
           result._score += info.peers * 0.05 // add popularity weight
-          result._title = info.title
-          result._description = info.description
-          result._peers = info.peers
         }
-        result._score -= ((new Date().getTime() - hit.date) / 180000) * 0.0001 // age weight
-        result.hits[term] = hit
+        result._score -= ((new Date().getTime() - ptr.d) / 180000) * 0.0001 // age weight
       }
     }
     const out = Object.values(results)
       .map(r => { return {...r, hits: Object.values(r.hits) } })
     out.sort((a, b) => b._score - a._score)
     set(out)
+    // TODO: Perform extended search via stemming and substringing
+    // and invoke set(out) again with more results but abort the
+    // entire process if any of the dependent stores have changed.
   }
 }
 

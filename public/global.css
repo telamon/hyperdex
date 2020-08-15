@@ -26,6 +26,7 @@
 /* color theme */
 :root {
   --purp: #62467b;
+  --deep: #03052d;
 }
 html, body {
 	position: relative;
