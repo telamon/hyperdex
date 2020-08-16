@@ -6,9 +6,9 @@ import { writable, derived, readable, get } from 'svelte/store'
 const log = console.log.bind(null, '[hyperdex]')
 // import prettyHash from 'pretty-hash'
 function prettyHash (str) { return str.replace(/^(.{3}).+(.{6})$/, '$1...$2') }
-const safteyNet = fn => {
+const safetyNet = fn => {
   return (...args) => {
-    fn(...args)
+    return fn(...args)
       .catch(err => {
         debugger
         log('[errhandler] trapped', err)
@@ -41,7 +41,8 @@ class HyperdexDb {
     this.search = dbnc(this.search.bind(this), 500)
     this.searchResults = derived([this.version, this.about, this._terms], this._resultsStore.bind(this), [])
     this.newsPage = writable(0)
-    this.news = derived([this.version, this.newsPage], safteyNet(this._newsStore.bind(this)), [])
+    this.news = derived([this.version, this.newsPage], this._newsStore.bind(this), [])
+    this.updatedAt = derived(this.version, this._updatedAtStore.bind(this), new Date())
     this._processUpdates()
   }
 
@@ -96,9 +97,12 @@ class HyperdexDb {
   }
   async _aboutStore (ver, set) {
     if (!ver) return {}
+    // this.drive.diff(other, prefix) is broken, ignore's parameter 'other'
+    // and beaker.hyperdrive.diff(url, other, prefix) ignores parameter 'prefix' ?
     const changes = await this.drive.diff(this._states.about, 'about/')
     if (!changes.length) return // No changes no change
-    log(`about updated: ${this._states.about} => ${ver}`)
+    log(`about updated: ${this._states.about} => ${ver}, changes: ${changes.length}`)
+    // if (changes.find(n => !n.name.match('about'))) debugger
     const keys =  changes.map(n => n.name.substr('about/'.length))
     const drives = get(this.about) || {}
     for (const key of keys) {
@@ -116,7 +120,7 @@ class HyperdexDb {
   async _newsStore ([version, page], set) {
     const limit = 50
     if (!version) return set([])
-    const changes = await this.drive.diff(this._states.news, 'updates/')
+    const changes = await this.drive.diff(this.url, this._states.news, 'updates/')
     if (!changes.length) return // No changes
 
     // news store is always rebuilt afresh from the lastest {limit} entries
@@ -150,7 +154,7 @@ class HyperdexDb {
       articles.push(info)
     }
 
-    log(`news updated: ${this._states.news} => ${version}`)
+    log(`news updated: ${this._states.news} => ${version}, changes: ${changes.length}`)
     this._states.news = version
     set(articles)
   }
@@ -244,6 +248,12 @@ class HyperdexDb {
     // TODO: Perform extended search via stemming and substringing
     // and invoke set(out) again with more results but abort the
     // entire process if any of the dependent stores have changed.
+  }
+
+  async _updatedAtStore (version, set) {
+    if (!version) return set(new Date(1))
+    const [ change ] = await beaker.hyperdrive.diff(this.url, version - 1, '/')
+    set(change.value && change.value.stat && change.value.stat.mtime || new Date(1))
   }
 }
 

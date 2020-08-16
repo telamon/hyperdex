@@ -11,6 +11,7 @@ const dbVersion = db.version
 const aboutLut = db.about
 const results = db.searchResults
 const news = db.news
+const dbUpdatedAt = db.updatedAt
 
 const _loc = window.location.hash.replace(/#/, '')
 const menuState = writable(_loc.length ? _loc : 'results')
@@ -60,7 +61,7 @@ const showTab = (section, ev) => {
 
 <main>
   <header>
-    db_url: <a href="{db.url}">{db.url}</a> @ version {$dbVersion}
+    Database v{$dbVersion} updated {moment($dbUpdatedAt).fromNow()}. <a href="{db.url}">{db.url}</a>
   </header>
   <section class="logo">
     <h1>hypé<sub>®</sub>dex</h1>
@@ -234,7 +235,6 @@ const showTab = (section, ev) => {
     color: #a680a9;
     padding: 4px 20px;
     text-align: right;
-    font-size: 10px;
   }
   header a { background-color: inherit; }
   header a:visited { background-color: inherit; }
