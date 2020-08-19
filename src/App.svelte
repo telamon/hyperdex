@@ -2,19 +2,20 @@
 import { writable, derived, readable } from 'svelte/store'
 import moment from 'moment'
 import dbnc from 'debounce'
+import prettyHash from 'pretty-hash'
 import prettyBytes from 'pretty-bytes'
 import DriveCard from './components/DriveCard.svelte'
 import DriveFloat from './components/DriveFloat.svelte'
+import NewsList from './components/NewsList.svelte'
+import ResultsList from './components/ResultsList.svelte'
 export let db
 
 const dbVersion = db.version
 const aboutLut = db.about
-const results = db.searchResults
-const news = db.news
 const dbUpdatedAt = db.updatedAt
 
 const _loc = window.location.hash.replace(/#/, '')
-const menuState = writable(_loc.length ? _loc : 'results')
+const menuState = writable(_loc.length ? _loc : 'news')
 const searchInput = writable('')
 const dbncSet = dbnc((set, val) => {
   $menuState = 'results'
@@ -27,6 +28,8 @@ const tokens = derived(searchInput, ($input, set) => {
   dbncSet(set, t)
   db.search(t)
 }, [])
+// Workaround for having moved out search results into separate component
+tokens.subscribe(() => { })
 
 const sortAbout = writable('popularity')
 const idxAbout = derived([aboutLut, sortAbout], ([$a, order], set) => {
@@ -45,15 +48,6 @@ const idxAbout = derived([aboutLut, sortAbout], ([$a, order], set) => {
   set(drives)
 }, [])
 
-const resultsUsers = derived([tokens, aboutLut], ([tokens, aboutLut], set) => {
-  if (!tokens.length) return set([])
-  const matches = Object.values(aboutLut)
-    .filter(info =>
-      info.title && tokens.find(term => term.length > 3 && info.title.match(new RegExp(term, 'i')))
-    )
-  set(matches)
-}, [])
-
 const showTab = (section, ev) => {
   $menuState = section
 }
@@ -61,20 +55,21 @@ const showTab = (section, ev) => {
 
 <main>
   <header>
-    Database v{$dbVersion} updated {moment($dbUpdatedAt).fromNow()}. <a href="{db.url}">{db.url}</a>
+    Database v{$dbVersion} updated {moment($dbUpdatedAt).fromNow()}.
+    <a href="{db.url}">hyper://{prettyHash(new URL(db.url).host)}</a>
   </header>
   <section class="logo">
-    <h1>hypé<sub>®</sub>dex</h1>
+    <h1><span class="serif">hypé</span><sub>®</sub>dex</h1>
     <div class="pic {!$searchInput || !$searchInput.length ? '' : ' hidden'}">
       <div><img src="/index.jpg" alt="thick heavy phonebook"/></div>
       <small>
-        <i title="It's lookups in a downloaded catalogue, your search history goes straight to the void">Offline search engine</i>
+        <i title="Lookups performed on a downloaded catalogue, your search history goes straight to the void">Offline search engine</i>
       </small>
     </div>
   </section>
 
   <section class="search">
-    <input type="text" placeholder="search" bind:value={$searchInput}/>
+    <input id="primary-search" type="text" placeholder="search" bind:value={$searchInput}/>
   </section>
   <nav>
     <a href="#results" on:click={showTab.bind(null, 'results')}>Results</a>
@@ -84,73 +79,13 @@ const showTab = (section, ev) => {
   </nav>
   {#if $menuState === 'results'}
   <section class="results mpad">
-    {#if !$results || !$results.length }
-      <h2>Results</h2>
-      <i>No results available, type 🐈 into the search box!</i>
-    {:else}
-      <h2><strong>{$results.length}</strong> results for <strong>{$tokens.join(', ')}</strong></h2>
-      <section class="results-users">
-        <bold>Users</bold>
-        <div class="flex row">
-          {#each $resultsUsers as drive}
-            <DriveFloat db={db} key={drive.key} />
-          {/each}
-        </div>
-      </section>
-      {#each ($results) as res}
-        <result>
-        <sup title="ducks">
-          🦆{Math.round(100 * res._score)/100}
-          🎯 {res.hits.map(h => h.term).join(', ')}
-        </sup>
-        <DriveFloat db={db} key={res.key} />
-        <samp><a href="{res.url}">{res.prettyUrl}</a></samp>
-        <p>
-        {#each res.hits as hit}
-          <small>
-            <time title="{new Date(hit.date).toString()}"
-                  datetime="{new Date(hit.date).toString()}">
-              🕑 {moment(hit.date).fromNow()}
-            </time>
-          </small>
-            <p class="ellipsis">
-            {#if hit.previewType === 'text'}
-              {@html hit.preview}
-            {:else if hit.previewType === 'image'}
-              <img src="{hit.preview}" alt="preview"/>
-            {/if}
-          </p>
-        {/each}
-        </p>
-        </result>
-      {/each}
-    {/if}
+    <ResultsList db={db} terms={tokens}/>
   </section>
   {/if}
 
   {#if $menuState === 'news'}
-    <section class="news mpad">
-      <h2>What's new in hyperspace</h2>
-      {#each ($news || []) as article}
-        <article>
-          <small><time
-             title="{new Date(article.date).toString()}"
-             datetime="{new Date(article.date).toString()}">
-              Posted {moment(article.date).fromNow()}
-            </time></small>
-            <br/>
-            <DriveFloat db={db} key={article.key} />
-            <br/>
-            <p class="ellipsis">
-              {#if article.previewType === 'text'}
-                {@html article.preview}
-              {:else if article.previewType === 'image'}
-                <img src="{article.preview}" alt="preview"/>
-              {/if}
-            </p>
-            <samp><a href="{article.url}">{article.prettyUrl}</a></samp>
-        </article>
-      {/each}
+    <section class="mpad">
+      <NewsList db={db}/>
     </section>
   {/if}
 
@@ -184,9 +119,12 @@ const showTab = (section, ev) => {
         <li>Source code <a target="_new" href="https://github.com/telamon/hyperspace-indexer">hyperspace-indexer</a> (robot)</li>
         <li>
           <a target="_new" href="hyper://4effb70d142f4cec80f263bc870fcf28177af4ac7bca7f66bb72cd4cda45be50/"><strong>@telamohn</strong></a>
-          ,
-          <a target="_new" href="https://twitter.com/telamohn">(twitter)</a></li>
-        <li><a target="_new" href="https://www.patreon.com/decentlabs">Decentlabs Patreon</a></li>
+          /
+          <a target="_new" href="https://twitter.com/telamohn">twitter</a></li>
+        <li>
+          <a target="_new" href="hyper://3504e02af6b54117a66a5d628f80e3e4edc1697bdff6bed193d024e84a33ad88">@decentlabs</a>
+          / <a target="_new" href="https://www.patreon.com/decentlabs">patreon</a>
+        </li>
         <!--<li>hyper://decentlabs.se</li>-->
       </ul>
     </section>
@@ -196,6 +134,9 @@ const showTab = (section, ev) => {
         ******
         Q: I don't want to be indexed
         A: Put an empty <span style="border: 1px solid #666;border-radius:4px;padding: 1px 5px;background-color: #eee">.nocrawl</span> file in the root of your hyperdrive.
+
+        Q: Can I have dork-mode?
+        A: <i>~Forget about it!~</i> Windows84-theme is canon, breathe it in.
 
         Q: Why is everything broken and where's the content for this page?
         A:
@@ -213,31 +154,11 @@ const showTab = (section, ev) => {
     then please open an <a href="https://github.com/telamon/hyperspace-indexer/issues">issue</a> and tell your friends
     to <a href="https://www.patreon.com/decentlabs">subscribe</a> to boost the R&amp;D.
     </p>
-    <p>2020 © <a href="https://www.patreon.com/decentlabs">Decent Labs AB</a>. All wrongs reversed - <samp>Licensed GNU AGPLv3</samp></p>
+    <p>2020 <span style="transform: rotate(149deg); display: inline-block">©</span> <a href="https://www.patreon.com/decentlabs">Decent Labs AB</a>. All wrongs reversed - <samp>Licensed GNU AGPLv3</samp></p>
   </footer>
 </main>
 
 <style>
-  .disclaimer {
-    background-color: #eee;
-    border-radius: 4px;
-    font-family: monospace;
-    display: inline-block;
-    max-width: 600px;
-    padding: 2em;
-    margin: 1em;
-  }
-  footer {
-    text-align: center;
-  }
-  header {
-    background-color: #03052d;
-    color: #a680a9;
-    padding: 4px 20px;
-    text-align: right;
-  }
-  header a { background-color: inherit; }
-  header a:visited { background-color: inherit; }
   .search {
     text-align: center;
     font-size: 24px;
@@ -266,20 +187,6 @@ const showTab = (section, ev) => {
 			max-width: none;
 		}
   }
-
-  article, result {
-    display: block;
-    margin: 1em 0;
-    margin-bottom: 1em;
-    padding: 1em;
-    background: #edf6f9;
-  }
-  article h4, result h4 {
-    font-size: 24px;
-    font-weight: normal;
-    padding-bottom: 0;
-    margin-bottom: 0;
-  }
   .mpad { padding: 0 4em }
 
   nav {
@@ -294,8 +201,6 @@ const showTab = (section, ev) => {
   nav a { color: #62467b; }
   nav a:visited { color: #62467b; }
   .search input {
-    border: 1px solid #62467b;
-    border-radius: 0px;
   }
   .pic img {
     height: 230px;
@@ -309,16 +214,5 @@ const showTab = (section, ev) => {
   }
   .pic.hidden {
     height: 0;
-  }
-  .ellipsis {
-    width: 450px;
-    max-width: 450px;
-    max-height: 350px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .ellipsis h1, .ellipsis h2, .ellipsis h3, .ellipsis h4 {
-    font-size: 12px;
-    font-weight: bold;
   }
 </style>

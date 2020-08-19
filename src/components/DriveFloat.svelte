@@ -1,10 +1,20 @@
 <script>
-// import { readable } from 'svelte/store'
+import { readable } from 'svelte/store'
 export let key = null
 export let db = null
+export let extras = ''
+
+const showPeers = !!extras.split('|').find(s => s === 'peers')
 //export let drive = null
 // const info = drive ? readable(set => set(drive)) : db.driveInfo(key)
-const info = db.driveInfo(key)
+// const info = db.driveInfo(key)
+const info = readable({
+  thumbnail: null,
+  title: 'loading...',
+  description: 'loading...'
+}, set => {
+  db.fetchInfo(key).then(set)
+})
 </script>
 <a class="drive-float flex row xcenter" href="hyper://{key}">
   <div class="thumbcontainer flex row center xcenter">
@@ -12,19 +22,19 @@ const info = db.driveInfo(key)
   </div>
   <div class="flex column xstart">
     <h4>{$info.title}</h4>
-    <description>{$info.description}</description>
+    <description class="serif">{$info.description}</description>
   </div>
+
+  <extras class="flex row-reverse xcenter" style="width: 100%; padding-right: 1em;">
+  {#if showPeers}
+    <span title="peers">👥{$info.peers}</span>
+  {/if}
+  </extras>
 </a>
 <style>
-  .drive-float {
-    /* background-color: var(--deep);
-    color: #eee; */
-    border: 1px solid var(--purp);
-    border-radius: 2px;
-    width: 320px;
-  }
   .thumbcontainer {
     width: 48px;
+    height: 48px;
     margin-right: 1em;
   }
   .thumb {

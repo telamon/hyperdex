@@ -16,6 +16,7 @@ const safetyNet = fn => {
       })
   }
 }
+
 function previewPath (key, file, version = null) {
   if (typeof key !== 'string') throw new Error('Expected hexstring') // key = key.toString('hex')
   const k = `previews/${key.substr(0, 2)}/${key.substr(2, 2)}/${key.substring(4)}/${file}`
@@ -32,24 +33,35 @@ class HyperdexDb {
       about: 0,
       results: 0
     }
-    this._dynamicInfos = {}
-    this.version = readable(this._version, set => { this._setVersion = set })
+    this.newsProgress = writable(1)
+    this.searchProgress = writable(1)
+    // this._dynamicInfos = {}
+    this.version = readable(this._version, set => { this._setVersion = set }, 0)
     this.drive = beaker.hyperdrive.drive(url)
-    this.drive.watch(dbnc(this._processUpdates.bind(this), 5000))
+    this.drive.watch(dbnc(this._watchVersion.bind(this), 5000))
     this.about = derived(this.version, this._aboutStore.bind(this), {})
     this._terms = writable([])
     this.search = dbnc(this.search.bind(this), 500)
-    this.searchResults = derived([this.version, this.about, this._terms], this._resultsStore.bind(this), [])
+    this.searchResults = derived([this.version, this.about, this._terms, this.resultsPage], this._resultsStore.bind(this), [])
     this.newsPage = writable(0)
+    this.resultsPage = writable(0)
     this.news = derived([this.version, this.newsPage], this._newsStore.bind(this), [])
     this.updatedAt = derived(this.version, this._updatedAtStore.bind(this), new Date())
-    this._processUpdates()
+    this._watchVersion()
   }
 
   search (terms) {
     this._terms.set(terms)
   }
 
+  async fetchInfo (key) {
+    if (!key) return
+    const info = await this.__makeDriveInfo(key)
+      .catch(console.error.bind(null, 'Failed fetching drive info'))
+    return info
+  }
+
+  /*
   driveInfo (key) {
     if (!this._dynamicInfos[key]) {
       const state = { version: 0 }
@@ -68,9 +80,9 @@ class HyperdexDb {
       this._dynamicInfos[key] = state
     }
     return this._dynamicInfos[key].store
-  }
+  }*/
 
-  async _processUpdates (...args) {
+  async _watchVersion (...args) {
     this._info = await this.drive.getInfo()
     const { version } = this._info
     if (this._version !== version && typeof this._setVersion === 'function') {
@@ -95,6 +107,7 @@ class HyperdexDb {
       thumbnail
     }
   }
+
   async _aboutStore (ver, set) {
     if (!ver) return {}
     // this.drive.diff(other, prefix) is broken, ignore's parameter 'other'
@@ -119,19 +132,33 @@ class HyperdexDb {
 
   async _newsStore ([version, page], set) {
     const limit = 50
-    if (!version) return set([])
-    const changes = await this.drive.diff(this.url, this._states.news, 'updates/')
-    if (!changes.length) return // No changes
+    if (!version) return
+    this.newsProgress.set(0)
+    // const changes = await beaker.hyperdrive.diff(this.url, version - 1, '/updates')
+    // const changes = await this.drive.diff(this.url, this._states.news, 'updates/')
+    // if (!changes.length) return // No changes
 
     // news store is always rebuilt afresh from the lastest {limit} entries
     const entries = await this.drive.query({
       path: `updates/*`,
       type: 'file',
       limit,
-      offset: limit * this.newsPage,
+      offset: limit * page,
       sort: 'name',
       reverse: true
     })
+
+    if (!entries.length) {
+      this.newsProgress.set(1)
+      return
+    }
+
+    this.newsProgress.set(0.17)
+    let nDone = 0
+    const bump = () => this.newsProgress.set((1 / articles.length) * ++nDone * (1 - 0.17))
+
+    console.log('Found entries', entries.length)
+
     const articles = []
     for (const entry of entries) {
       const fname = entry.path.match(/.*\/([^\/]+)$/)[1]
@@ -140,6 +167,9 @@ class HyperdexDb {
       const key = tmp.shift()
       const remotePath = tmp.join('_').replace(/\+/g, '/')
       const remoteVer = await this.drive.readFile(entry.path)
+        .catch(console.error.bind(null, 'Failed retreiving pointer'))
+      if (!remoteVer) { bump(); continue }
+
       const info = {
         version: parseInt(remoteVer),
         path: remotePath,
@@ -152,11 +182,13 @@ class HyperdexDb {
       const previewBody = await this._getPreview(key, remotePath, remoteVer)
       if (previewBody) Object.assign(info, previewBody)
       articles.push(info)
+      bump()
     }
 
-    log(`news updated: ${this._states.news} => ${version}, changes: ${changes.length}`)
+    log(`news updated: ${this._states.news} => ${version}, changes: ${0}`)
     this._states.news = version
     set(articles)
+    this.newsProgress.set(1)
   }
 
   async _getPreview(key, remotePath, remoteVer) {
@@ -189,15 +221,26 @@ class HyperdexDb {
     return null
   }
 
-  async _resultsStore ([version, about, terms], set) {
+  async _resultsStore ([version, about, terms, page], set) {
+    const limit = 100
+    this.searchProgress.set(0)
     log('Searching for', terms)
     const results = {}
+    let prog = 0
     for (const term of terms) {
       if (term.length < 3) continue
       const entries = await this.drive.query({
         path: `terms/${term.split('').join('/')}/*`,
-        type: 'file'
+        type: 'file',
+        limit,
+        offset: limit * page,
       })
+      if (!entries.length) continue
+      const bump = () => {
+        this.searchProgress.set(
+          prog += (1 / terms.length ) * (1 / entries.length)
+        )
+      }
       for (const entry of entries) {
         const fname = entry.path.match(/.*\/([^\/]+)$/)[1]
         let tmp = fname.split('_')
@@ -214,7 +257,8 @@ class HyperdexDb {
         }
         const result = results[fname]
         const _body = await this.drive.readFile(entry.path)
-        const ptr = JSON.parse(_body)
+          .catch(console.error.bind(null, 'Failed loading entry'))
+        const ptr = _body ? JSON.parse(_body) : {}
         const hit = {
           term,
           date: new Date(ptr.d),
@@ -223,6 +267,7 @@ class HyperdexDb {
           preview: null
         }
         result.hits.push(hit)
+        if (!ptr.m) continue
         const preview = await this._getPreview(key, remotePath, ptr.m)
         if (preview) Object.assign(hit, preview)
         if (preview && preview.previewType === 'text') {
@@ -239,19 +284,24 @@ class HyperdexDb {
           result._score += info.peers * 0.05 // add popularity weight
         }
         result._score -= ((new Date().getTime() - ptr.d) / 180000) * 0.0001 // age weight
+        bump()
       }
     }
     const out = Object.values(results)
       .map(r => { return {...r, hits: Object.values(r.hits) } })
     out.sort((a, b) => b._score - a._score)
     set(out)
+    this.searchProgress.set(1)
     // TODO: Perform extended search via stemming and substringing
     // and invoke set(out) again with more results but abort the
     // entire process if any of the dependent stores have changed.
   }
 
   async _updatedAtStore (version, set) {
-    if (!version) return set(new Date(1))
+    if (!version) {
+      set(new Date(1))
+      return
+    }
     const [ change ] = await beaker.hyperdrive.diff(this.url, version - 1, '/')
     set(change.value && change.value.stat && change.value.stat.mtime || new Date(1))
   }
