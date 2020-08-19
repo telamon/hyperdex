@@ -77,4 +77,10 @@ const info = readable({
     line-height: 16px;
     vertical-align: middle;
   }
+  extras {
+    vertical-align: middle;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 14px;
+  }
 </style>

@@ -133,7 +133,7 @@ const showTab = (section, ev) => {
   {#if $menuState === 'about'}
     <section class="about mpad">
       <h2>About hyperdex</h2>
-      <i>Created with ⚡ by</i>
+      <i>Created with <span title="indiscriminate justice">⚡</span> by</i>
       <DriveFloat key="4effb70d142f4cec80f263bc870fcf28177af4ac7bca7f66bb72cd4cda45be50" db={db} extras="add"/>
       <ul>
         <li>Source code <a target="_new" href="https://github.com/telamon/hyperdex">hyperdex</a> (offline-webapp)</li>
