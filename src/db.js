@@ -35,6 +35,7 @@ class HyperdexDb {
     }
     this.newsProgress = writable(1)
     this.searchProgress = writable(1)
+    this.aboutProgress = writable(1)
     // this._dynamicInfos = {}
     this.version = readable(this._version, set => { this._setVersion = set }, 0)
     this.drive = beaker.hyperdrive.drive(url)
@@ -109,14 +110,30 @@ class HyperdexDb {
   }
 
   async _aboutStore (ver, set) {
-    if (!ver) return {}
+    if (!ver) return
+    this.aboutProgress.set(0)
     // this.drive.diff(other, prefix) is broken, ignore's parameter 'other'
     // and beaker.hyperdrive.diff(url, other, prefix) ignores parameter 'prefix' ?
+    /*
     const changes = await this.drive.diff(this._states.about, 'about/')
     if (!changes.length) return // No changes no change
     log(`about updated: ${this._states.about} => ${ver}, changes: ${changes.length}`)
     // if (changes.find(n => !n.name.match('about'))) debugger
-    const keys =  changes.map(n => n.name.substr('about/'.length))
+    const keys =  changes.map(n => n.name.substr('about/'.length)) */
+
+    const entries = await this.drive.query({
+      path: `about/*`,
+      type: 'file'
+      // limit,
+      // offset: limit * page,
+    })
+    if (!entries.length) return this.aboutProgress.set(1)
+    let nDone = 0
+    const bump = () =>
+      this.aboutProgress.set((1 / entries.length) * ++nDone * (1 - 0.15))
+    this.aboutProgress.set(0.1)
+    const keys = entries.map(n => n.path.substr('/about/'.length))
+    this.aboutProgress.set(0.15)
     const drives = get(this.about) || {}
     for (const key of keys) {
       try {
@@ -124,10 +141,13 @@ class HyperdexDb {
         if (info.title || info.peers) drives[key] = info // Skip { title: undefined, desc: undefined, peers: 0 }
       } catch (err) {
         console.error('Failed loading drive-info: ', key, err)
+      } finally {
+        bump()
       }
     }
     this._states.about = ver
     set(drives)
+    this.aboutProgress.set(1)
   }
 
   async _newsStore ([version, page], set) {

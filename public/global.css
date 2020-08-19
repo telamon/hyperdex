@@ -30,15 +30,22 @@
   --deep: #03052d;
   --amethyst: #a663cc;
   --neon: hsl(320, 51%, 59%);
-  --blood: hsl(332 67% 51%);
+  --blood: hsl(332 67% 51%); /* Lithium blood ofc. */
   --pale: #b8d0ebff;
   --celeste: #b9faf8ff;
   --cybercop: rgb(0,100,200);
   --lavender: hsl(253, 39%, 93%);
   --davender: #D3CBDA;
 }
+
+c1 { color: var(--purp); }
+c2 { color: var(--cybercop); }
+c3 { color: var(--neon); }
+c4 { color: var(--blood); }
+c5 { color: var(--amethyst); }
 article, result {
   display: block;
+  max-width: 700px;
   margin-bottom: 1.5em;
   padding: 0em;
   background-color: var(--davender);
@@ -69,6 +76,18 @@ article .drive-float, result .drive-float {
   border: none ;
   border-radius: 0;
   /*border-bottom: 1px solid var(--deep);*/
+}
+result .ellipsis img {
+  max-height: 200px;
+  max-width: 80%;
+}
+
+.results-users .drive-float, .about .drive-float {
+  margin-right: 1em;
+  margin-bottom: 1em;
+  /*border: 3px outset;
+  box-shadow: 1px 2px 7px #8932fd47;*/
+  border: 3px groove;
 }
 
 a {
@@ -140,7 +159,7 @@ h2, h3 {
   }
 }
 .loader {
-  animation: 3s cubic-bezier(.68,-0.55,.27,1.55) 0s infinite both spin;
+  animation: 3s cubic-bezier(.68,-0.25,.27,1.25) 0s infinite both spin;
   font-size: 64px;
   display: inline-block;
   vertical-align: middle;
@@ -170,7 +189,8 @@ progress[value]::-webkit-progress-value {
 button {
   padding: 0.3em;
   border-radius: 0;
-  border: 3px outset #ccc;
+  border: 3px outset var(--lavender);
+  background-color: var(--davender);
 
 }
 code {
@@ -179,3 +199,26 @@ code {
   background-color: #eee;
   padding: 2px 4px;
 }
+strong { color: var(--purp); }
+.hostme {
+  margin: 1em;
+  font-size: smaller;
+  border: 2px dashed var(--davender);
+  padding: 0 0.4em;
+  line-height: 19px;
+  vertical-align: middle;
+  font-family: monospace;
+}
+.hostme heart {
+  font-size: 20px;
+  vertical-align: middle;
+}
+.hostme propaganda {
+  display: none;
+  width: 0;
+  overflow: hidden;
+}
+.hostme:hover propaganda {
+  display: inline;
+}
+

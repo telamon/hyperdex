@@ -46,7 +46,7 @@ const news = derived(db.news, (articles, set) => {
   {/if}
   {#each $news as group (group.date)}
     <article>
-      <DriveFloat db={db} key={group.key} extras="peers"/>
+      <DriveFloat db={db} key={group.key} extras="all"/>
       <div class="content">
         <samp>
           <time

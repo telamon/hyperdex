@@ -8,11 +8,14 @@ import DriveCard from './components/DriveCard.svelte'
 import DriveFloat from './components/DriveFloat.svelte'
 import NewsList from './components/NewsList.svelte'
 import ResultsList from './components/ResultsList.svelte'
+import ProgressLoader from './components/ProgressLoader.svelte'
+// import DrivesList from './components/DrivesList.svelte'
 export let db
 
 const dbVersion = db.version
 const aboutLut = db.about
 const dbUpdatedAt = db.updatedAt
+const aboutProgress = db.aboutProgress
 
 const _loc = window.location.hash.replace(/#/, '')
 const menuState = writable(_loc.length ? _loc : 'news')
@@ -58,8 +61,18 @@ const showTab = (section, ev) => {
     Database v{$dbVersion} updated {moment($dbUpdatedAt).fromNow()}.
     <a href="{db.url}">hyper://{prettyHash(new URL(db.url).host)}</a>
   </header>
+  <div class="flex row-reverse">
+    <a href="/"
+       class="hostme"
+       title="Please help host hyperdex"
+       on:click|preventDefault={() => window.beaker.contacts.requestAddContact(location.hostname)}>
+      <heart>❤</heart><propaganda>HOSTME.plz</propaganda>
+    </a>
+  </div>
   <section class="logo">
-    <h1><span class="serif">hypé</span><sub>®</sub>dex</h1>
+    <h1 title="Pronounced with a thick romanian accent">
+      <span class="serif"><c1>h</c1><c2>y</c2><c3>p</c3><c4>é</c4></span><sub><c1>®</c1></sub><c5>dex</c5>
+    </h1>
     <div class="pic {!$searchInput || !$searchInput.length ? '' : ' hidden'}">
       <div><img src="/index.jpg" alt="thick heavy phonebook"/></div>
       <small>
@@ -67,7 +80,7 @@ const showTab = (section, ev) => {
       </small>
     </div>
   </section>
-
+  <!--<ProgressLoader progress={writable(0.25)} title="Testloader"/>-->
   <section class="search">
     <input id="primary-search" type="text" placeholder="search" bind:value={$searchInput}/>
   </section>
@@ -94,7 +107,7 @@ const showTab = (section, ev) => {
       <h2>Discover</h2>
       <div class="flex row space-between">
         <p>
-        Listing <strong>{($idxAbout||[]).length}</strong> public drives containing a total of <strong>{prettyBytes(($idxAbout||[]).reduce((c, n) => c + n.size, 0))}</strong>
+           Listing <strong>{($idxAbout||[]).length}</strong> public drives containing a total of <strong>{prettyBytes(($idxAbout||[]).reduce((c, n) => c + n.size, 0))}</strong>
         </p>
         <div>
           Sort order:
@@ -105,22 +118,28 @@ const showTab = (section, ev) => {
       </div>
     </section>
     <section class="mpad flex row wrap">
-      {#each ($idxAbout || []) as drive}
-        <DriveCard info={drive} />
-      {/each}
+      {#if $aboutProgress < 1}
+        <div class="flex row center xcenter" style="width: 100%">
+          <ProgressLoader progress={aboutProgress} title="Probing..."/>
+        </div>
+      {:else}
+        {#each ($idxAbout || []) as drive}
+          <DriveCard info={drive} />
+        {/each}
+      {/if}
     </section>
   {/if}
 
   {#if $menuState === 'about'}
     <section class="about mpad">
       <h2>About hyperdex</h2>
+      <i>Created with ⚡ by</i>
+      <DriveFloat key="4effb70d142f4cec80f263bc870fcf28177af4ac7bca7f66bb72cd4cda45be50" db={db} extras="add"/>
       <ul>
         <li>Source code <a target="_new" href="https://github.com/telamon/hyperdex">hyperdex</a> (offline-webapp)</li>
         <li>Source code <a target="_new" href="https://github.com/telamon/hyperspace-indexer">hyperspace-indexer</a> (robot)</li>
         <li>
-          <a target="_new" href="hyper://4effb70d142f4cec80f263bc870fcf28177af4ac7bca7f66bb72cd4cda45be50/"><strong>@telamohn</strong></a>
-          /
-          <a target="_new" href="https://twitter.com/telamohn">twitter</a></li>
+          telamohn @ <a target="_new" href="https://twitter.com/telamohn">twitter</a></li>
         <li>
           <a target="_new" href="hyper://3504e02af6b54117a66a5d628f80e3e4edc1697bdff6bed193d024e84a33ad88">@decentlabs</a>
           / <a target="_new" href="https://www.patreon.com/decentlabs">patreon</a>
@@ -130,13 +149,13 @@ const showTab = (section, ev) => {
     </section>
     <result>
       <h2>Q&A</h2>
-      <pre>
+      <pre style="font-size: 14px">
         ******
         Q: I don't want to be indexed
         A: Put an empty <span style="border: 1px solid #666;border-radius:4px;padding: 1px 5px;background-color: #eee">.nocrawl</span> file in the root of your hyperdrive.
 
-        Q: Can I have dork-mode?
-        A: <i>~Forget about it!~</i> Windows84-theme is canon, breathe it in.
+        Q: Can I have dark-mode?
+        A: <code>Windorfs84</code> is now canon, breathe it in.😤
 
         Q: Why is everything broken and where's the content for this page?
         A:
@@ -149,7 +168,7 @@ const showTab = (section, ev) => {
     <p class="disclaimer">
     ⚠️ Disclaimer ⚠️
     <br/>
-    The content on this page is transparently and deterministically produced by a robot,
+    The content on this page is transparently and deterministically produced by a free robot,
     if you disagree with anything presented here or would like to alter the robot's behaviour,
     then please open an <a href="https://github.com/telamon/hyperspace-indexer/issues">issue</a> and tell your friends
     to <a href="https://www.patreon.com/decentlabs">subscribe</a> to boost the R&amp;D.

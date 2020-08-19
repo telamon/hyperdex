@@ -3,8 +3,10 @@ import { readable } from 'svelte/store'
 export let key = null
 export let db = null
 export let extras = ''
-
-const showPeers = !!extras.split('|').find(s => s === 'peers')
+const everything = extras === 'all'
+extras = extras.split('|')
+const showPeers = everything || !!extras.find(s => s === 'peers')
+const showAdd = everything || !!extras.find(s => s === 'add')
 //export let drive = null
 // const info = drive ? readable(set => set(drive)) : db.driveInfo(key)
 // const info = db.driveInfo(key)
@@ -25,7 +27,14 @@ const info = readable({
     <description class="serif">{$info.description}</description>
   </div>
 
-  <extras class="flex row-reverse xcenter" style="width: 100%; padding-right: 1em;">
+  <extras class="flex row-reverse xcenter" style="width: 100%; padding-right: 6px;">
+  {#if showAdd}
+    <button class="add-button"
+            title="Add to address book"
+            on:click|preventDefault={() => window.beaker.contacts.requestAddContact(`hyper://${key}`)}>
+      +
+    </button>
+  {/if}
   {#if showPeers}
     <span title="peers">👥{$info.peers}</span>
   {/if}
@@ -49,13 +58,23 @@ const info = readable({
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    width: 250px;
+    max-width: 250px;
   }
   description {
-    width: 250px;
+    max-width: 250px;
     font-size: smaller;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .add-button {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin-left: 6px;
+    margin-right: 4px;
+    font-size: 24px;
+    line-height: 16px;
+    vertical-align: middle;
   }
 </style>

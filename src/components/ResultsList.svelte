@@ -27,16 +27,16 @@ const resultsUsers = derived([terms, about], ([tokens, aboutLut], set) => {
     <ProgressLoader progress={searchProgress} title="Searching..."/>
   {:else}
     <h2><strong>{$searchResults.length}</strong> results for <strong>{$terms.join(', ')}</strong></h2>
-
+    {#if $resultsUsers.length}
     <section class="results-users">
-      <bold>Users</bold>
-      <div class="flex row">
+      <strong>Drives</strong>
+      <div class="flex row wrap">
         {#each $resultsUsers as drive}
           <DriveFloat db={db} key={drive.key} extras="peers"/>
         {/each}
       </div>
     </section>
-
+    {/if}
     {#each ($searchResults) as res}
       <result>
       <DriveFloat db={db} key={res.key} extras="peers"/>
