@@ -6,6 +6,7 @@ import { writable, derived, readable, get } from 'svelte/store'
 const log = console.log.bind(null, '[hyperdex]')
 // import prettyHash from 'pretty-hash'
 function prettyHash (str) { return str.replace(/^(.{3}).+(.{6})$/, '$1...$2') }
+/*
 const safetyNet = fn => {
   return (...args) => {
     return fn(...args)
@@ -16,7 +17,7 @@ const safetyNet = fn => {
       })
   }
 }
-
+*/
 function previewPath (key, file, version = null) {
   if (typeof key !== 'string') throw new Error('Expected hexstring') // key = key.toString('hex')
   const k = `previews/${key.substr(0, 2)}/${key.substr(2, 2)}/${key.substring(4)}/${file}`
@@ -38,7 +39,7 @@ class HyperdexDb {
     this.aboutProgress = writable(1)
     // this._dynamicInfos = {}
     this.version = readable(this._version, set => { this._setVersion = set }, 0)
-    this.drive = beaker.hyperdrive.drive(url)
+    this.drive = window.beaker.hyperdrive.drive(url)
     this.drive.watch(dbnc(this._watchVersion.bind(this), 5000))
     this.about = derived(this.version, this._aboutStore.bind(this), {})
     this._terms = writable([])
@@ -81,7 +82,8 @@ class HyperdexDb {
       this._dynamicInfos[key] = state
     }
     return this._dynamicInfos[key].store
-  }*/
+  }
+  */
 
   async _watchVersion (...args) {
     this._info = await this.drive.getInfo()
@@ -92,6 +94,7 @@ class HyperdexDb {
       this._version = version
     }
   }
+
   async __makeDriveInfo (key) {
     const body = await this.drive.readFile(`about/${key}`)
     let thumbnail = null
@@ -122,7 +125,7 @@ class HyperdexDb {
     const keys =  changes.map(n => n.name.substr('about/'.length)) */
 
     const entries = await this.drive.query({
-      path: `about/*`,
+      path: 'about/*',
       type: 'file'
       // limit,
       // offset: limit * page,
@@ -160,7 +163,7 @@ class HyperdexDb {
 
     // news store is always rebuilt afresh from the lastest {limit} entries
     const entries = await this.drive.query({
-      path: `updates/*`,
+      path: 'updates/*',
       type: 'file',
       limit,
       offset: limit * page,
@@ -181,8 +184,8 @@ class HyperdexDb {
 
     const articles = []
     for (const entry of entries) {
-      const fname = entry.path.match(/.*\/([^\/]+)$/)[1]
-      let tmp = fname.split('_')
+      const fname = entry.path.match(/.*\/([^\/]+)$/)[1] // eslint-disable-line no-useless-escape
+      const tmp = fname.split('_')
       const date = parseInt(tmp.shift())
       const key = tmp.shift()
       const remotePath = tmp.join('_').replace(/\+/g, '/')
@@ -196,7 +199,7 @@ class HyperdexDb {
         date,
         key,
         url: `hyper://${key}/${remotePath}`,
-        prettyUrl: `hyper://${prettyHash(key)}/${remotePath}`,
+        prettyUrl: `hyper://${prettyHash(key)}/${remotePath}`
       }
       // generate preview hints
       const previewBody = await this._getPreview(key, remotePath, remoteVer)
@@ -211,7 +214,7 @@ class HyperdexDb {
     this.newsProgress.set(1)
   }
 
-  async _getPreview(key, remotePath, remoteVer) {
+  async _getPreview (key, remotePath, remoteVer) {
     const ppath = previewPath(key, remotePath, remoteVer)
     const previewUrl = `${this.url}/${ppath}`
     // log('Attempting to load preview', previewUrl)
@@ -225,7 +228,7 @@ class HyperdexDb {
           preview = await this.drive.readFile(linkStat.linkname) */
         const preview = await this.drive.readFile(ppath)
         return {
-          preview: marked(Purify.sanitize(preview.replace(/</g, `&lt;`).replace(/>/g, `&gt;`))),
+          preview: marked(Purify.sanitize(preview.replace(/</g, '&lt;').replace(/>/g, '&gt;'))),
           previewType: 'text',
           previewUrl
         }
@@ -253,17 +256,17 @@ class HyperdexDb {
         path: `terms/${term.split('').join('/')}/*`,
         type: 'file',
         limit,
-        offset: limit * page,
+        offset: limit * page
       })
       if (!entries.length) continue
       const bump = () => {
         this.searchProgress.set(
-          prog += (1 / terms.length ) * (1 / entries.length)
+          prog += (1 / terms.length) * (1 / entries.length)
         )
       }
       for (const entry of entries) {
-        const fname = entry.path.match(/.*\/([^\/]+)$/)[1]
-        let tmp = fname.split('_')
+        const fname = entry.path.match(/.*\/([^\/]+)$/)[1] // eslint-disable-line no-useless-escape
+        const tmp = fname.split('_')
         const key = tmp.shift()
         const remotePath = tmp.join('_').replace('+', '/')
         if (!results[fname]) {
@@ -293,7 +296,7 @@ class HyperdexDb {
         if (preview && preview.previewType === 'text') {
           // Adjust score for amount of times the term is found in the text
           let count = 0
-          for (const _ of hit.preview.matchAll(new RegExp(term, 'ig'))) count++
+          for (const _ of hit.preview.matchAll(new RegExp(term, 'ig'))) count++ // eslint-disable-line no-unused-vars
           result._score += count * 0.25 // add search hit weights
           // Add highlights to preview
           hit.preview = hit.preview.replace(new RegExp(`(${term})`, 'ig'), '<em>$1</em>')
@@ -308,7 +311,7 @@ class HyperdexDb {
       }
     }
     const out = Object.values(results)
-      .map(r => { return {...r, hits: Object.values(r.hits) } })
+      .map(r => { return { ...r, hits: Object.values(r.hits) } })
     out.sort((a, b) => b._score - a._score)
     set(out)
     this.searchProgress.set(1)
@@ -322,8 +325,8 @@ class HyperdexDb {
       set(new Date(1))
       return
     }
-    const [ change ] = await beaker.hyperdrive.diff(this.url, version - 1, '/')
-    set(change.value && change.value.stat && change.value.stat.mtime || new Date(1))
+    const [change] = await window.beaker.hyperdrive.diff(this.url, version - 1, '/')
+    set((change.value && change.value.stat && change.value.stat.mtime) || new Date(1))
   }
 }
 
@@ -338,7 +341,8 @@ const dbVersion = readable(-1, set => {
 })
 const db = derived(dbVersion, (v, set) => {
   set(drive)
-})*/
+})
+*/
 
 export default HyperdexDb
 
