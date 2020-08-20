@@ -1,7 +1,11 @@
 <script>
   import prettyBytes from 'pretty-bytes'
   import moment from 'moment'
-  export let info
+export let info
+const driveExplorerNotImplemented = `Drive-explorer is not yet implemented.\n
+It should aggregate things like "number-of-posts" and "seeds" over time histograms.
+Fancy graphs and such - meh, lend me a hand.
+`
 </script>
 <drive-card>
   <small>
@@ -24,6 +28,15 @@
     <span title="file count">📁{info.files}</span>
     <span title="drive size">({prettyBytes(info.size)})</span>
   </samp>
+  <div class="flex row-reverse space-between">
+  <button on:click|preventDefault={() => window.beaker.contacts.requestAddContact(`hyper://${info.key}`)}>
+    Add to contacts
+  </button>
+
+  <button on:click|preventDefault={() => alert(driveExplorerNotImplemented)}>
+    Inspect
+  </button>
+  </div>
 </drive-card>
 <style>
   drive-card {
