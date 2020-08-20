@@ -21,12 +21,42 @@ async function main () {
   const drive = hyperdrive('.hyper_dist/')
   await defer(d => drive.ready(d))
   replicate(drive)
-  await syncFolder(drive, root)
+  const tasks = await diffFolder(drive, root)
+  if (!tasks.length) {
+    console.log('= Nothing to do, drive already in sync')
+  } else {
+    console.log('The Following files are about to be imported:')
+    for (const { dst, hash, size } of tasks) {
+      console.log('+', hash.hexSlice(), size, dst)
+    }
+
+    if (!args['dry-run']) {
+      await defer(done => {
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout
+        })
+        rl.question('Proceed with import? (y/N)', line => {
+          if (line.match(/^y(es)?$/)) done()
+          else {
+            // done(new Error('Aborted by user'))
+            console.log('Aborted by user')
+            process.exit(0)
+          }
+        })
+      })
+
+      for (const { content, dst, hash } of tasks) {
+        const metadata = { checksum: hash }
+        await defer(done => drive.writeFile(dst, content, { metadata }, done))
+      }
+    }
+  }
   console.log(`hyper://${drive.key.hexSlice()}`, '@', drive.version)
   console.log('Seeding drive until stopped (Ctrl+C)')
 }
 
-async function syncFolder (drive, path) {
+async function diffFolder (drive, path) {
   const files = readdirSync(path)
   const tasks = []
   for (const file of files) {
@@ -34,7 +64,8 @@ async function syncFolder (drive, path) {
     const dst = relative(root, src)
     const stat = lstatSync(src)
     if (stat.isDirectory()) {
-      await syncFolder(drive, join(path, file))
+      const sub = await diffFolder(drive, join(path, file))
+      for (const f of sub) tasks.push(f)
       continue
     } else if (!stat.isFile()) {
       console.error('Warning, skipped', join(path, file))
@@ -53,37 +84,7 @@ async function syncFolder (drive, path) {
     }
     if (write) tasks.push({ content, dst, hash, size: stat.size })
   }
-
-  if (!tasks.length) {
-    console.log('Nothing to do, drive already in sync')
-    return
-  }
-  console.log('The Following files are about to be imported:')
-  for (const { dst, hash, size } of tasks) {
-    console.log(hash.hexSlice(), size, dst)
-  }
-
-  if (args.n) return // Dry-running
-
-  await defer(done => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    })
-    rl.question('Proceed with import? (y/N)', line => {
-      if (line.match(/^y(es)?$/)) done()
-      else {
-        // done(new Error('Aborted by user'))
-        console.log('Aborted by user')
-        process.exit(0)
-      }
-    })
-  })
-
-  for (const { content, dst, hash } of tasks) {
-    const metadata = { checksum: hash }
-    await defer(done => drive.writeFile(dst, content, { metadata }, done))
-  }
+  return tasks
 }
 
 const LOCK_KEY = '.device.lock'
