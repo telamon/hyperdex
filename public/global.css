@@ -51,7 +51,7 @@ article, result {
   padding: 0em;
   background-color: var(--davender);
   border: 2px outset /*var(--deep)*/;
-  box-shadow: 1px 2px 7px #8932fd47;
+  box-shadow: 8px 8px 0 -5px #8932fd47;
 }
 article .content, result .content {
   padding: 1em;
