@@ -1,8 +1,10 @@
 import dbnc from 'debounce'
 import marked from 'marked'
 import Purify from 'dompurify'
+import emojiRegex from 'emoji-regex'
 import { writable, derived, readable, get } from 'svelte/store'
 
+const EM_REG = emojiRegex()
 const log = console.log.bind(null, '[hyperdex]')
 // import prettyHash from 'pretty-hash'
 function prettyHash (str) { return str.replace(/^(.{3}).+(.{6})$/, '$1...$2') }
@@ -234,7 +236,8 @@ class HyperdexDb {
           preview = await this.drive.readFile(linkStat.linkname) */
         const preview = await this.drive.readFile(ppath)
         return {
-          preview: marked(Purify.sanitize(preview.replace(/</g, '&lt;').replace(/>/g, '&gt;'))),
+          preview: marked(Purify.sanitize(preview.replace(/</g, '&lt;').replace(/>/g, '&gt;')))
+            .replace(EM_REG, m => `<m>${m}</m>`),
           previewType: 'text',
           previewUrl
         }
