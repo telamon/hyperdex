@@ -100,7 +100,13 @@ class HyperdexDb {
     let thumbnail = null
     try {
       const files = await this.drive.readdir(previewPath(key, ''), { includeStats: true })
-      const entry = files.find(e => e.name.match(/thumb\.(png|jpe?g)$/))
+      const candidates = files.filter(e => e.name.match(/thumb\.(png|jpe?g)$/))
+        .sort((a, b) => {
+          const av = parseInt(a.stat.linkname.match(/thumb\.(?:png|jpe?g)_(\d+)$/)[1])
+          const bv = parseInt(b.stat.linkname.match(/thumb\.(?:png|jpe?g)_(\d+)$/)[1])
+          return bv - av
+        })
+      const entry = candidates[0]
       if (entry) thumbnail = `${this.url}/${entry.stat.linkname}`
     } catch (err) {
       if (err.message !== 'Uncaught NotFoundError: File not found') throw err

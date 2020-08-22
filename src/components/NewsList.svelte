@@ -105,8 +105,8 @@ const news = derived(db.news, (articles, set) => {
     margin-bottom: 0;
   }
   .ellipsis {
-    width: 450px;
-    max-width: 450px;
+    width: 600px;
+    max-width: 600px;
     max-height: 350px;
     overflow: hidden;
     text-overflow: ellipsis;

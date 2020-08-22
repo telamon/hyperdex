@@ -51,7 +51,7 @@ article, result {
   padding: 0em;
   background-color: var(--davender);
   border: 2px outset /*var(--deep)*/;
-  box-shadow: 8px 8px 0 -5px #8932fd47;
+  box-shadow: 8px 9px 0 -5px #8932fd47;
 }
 article .content, result .content {
   padding: 1em;
@@ -117,6 +117,9 @@ body {
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
 }
 .serif {
+  font-family: sans-serif;
+}
+.emo {
   font-family: apple color emoji,segoe ui emoji,noto color emoji,android emoji,emojisymbols,emojione mozilla,twemoji mozilla,segoe ui symbol;
 }
 
@@ -200,6 +203,23 @@ code {
   background-color: #eee;
   padding: 2px 4px;
 }
+ul { list-style-type: square; }
+.ellipsis pre > code {
+  border: unset;
+  border-radius: unset;
+  background-color: unset;
+  color: unset;
+  padding: unset;
+}
+.ellipsis > pre { /* wanted to do pre:has(> code) but that dosen't work yet */
+  overflow: scroll;
+  padding: 1em;
+  border: 3px groove var(--lavender);
+  background-color: var(--purp);
+  color: var(--pale);
+  resize: vertical;
+}
+
 strong { color: var(--purp); }
 .hostme {
   margin: 1em;
