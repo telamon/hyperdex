@@ -1,4 +1,12 @@
 {
   "title": "📘hyperdex",
-  "description": "Hyperspace search engine 🔍🌌"
+  "description": "Hyperspace search engine 🔍🌌",
+  "links": {
+    "payment": [
+      {
+        "href": "https://www.patreon.com/decentlabs",
+        "type": "text/html"
+      }
+    ]
+  }
 }
